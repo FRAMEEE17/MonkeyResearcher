@@ -26,12 +26,21 @@ This runs the backend processing pipeline that handles data analysis and API req
 
 ### 3. Start Web Interface (Development Mode)
 
-Finally, start the main web interface in development mode:
+Start the main web interface in development mode:
 
 ```bash
 cd open-webui
 npm install
 npm run dev
+```
+
+### 4. Arxiv MCP
+
+Finally, start the Arxiv MCP:
+
+```bash
+cd arxiv-mcp-server
+mcpo --config config.json --port 9937
 ```
 
 The web interface will be available for development and testing.
