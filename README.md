@@ -36,13 +36,6 @@ To quickly get started with the MonkeyResearcher WebUI components, follow the se
 
 **[📋 WebUI Setup Guide](webui/README.md)** - Complete instructions for setting up and running the web interface stack
 
-The WebUI setup includes:
-- **SearXNG** - Privacy-focused web search engine
-- **Local Pipeline** - Backend data processing services
-- **Open WebUI** - Main web interface for interaction
-
-For detailed pipeline documentation and advanced configuration, continue reading the sections below.
-
 ---
 
 ## 🏗️ Architecture Overview
@@ -214,9 +207,9 @@ graph TD
     
     TER --> GQ[generate_query]
     GQ --> WR[web_research]
-    WR --> SS
+    WR --> summarize_sources
     
-    SS --> GVQ[generate_verification_questions]
+    summarize_sources --> GVQ[generate_verification_questions]
     
     GVQ --> VRC[verify_research_claims]
     VRC --> SWV[synthesize_with_verification]
@@ -224,14 +217,14 @@ graph TD
     
     ROS --> Route4{More Research?}
     Route4 -->|Yes| GQ
-    Route4 -->|No| FS
+    Route4 -->|No| finalize_summary
     
-    FS --> End([END])
+    finalize_summary --> End([END])
     
     style CI fill:#e1f5fe
     style TER fill:#f3e5f5
-    style SS fill:#e8f5e8
-    style FS fill:#fff3e0
+    style summarize_sources fill:#e8f5e8
+    style finalize_summary fill:#fff3e0
     style Route1 fill:#ffebee
     style Route4 fill:#ffebee
 ```
