@@ -1,0 +1,6 @@
+.webui_secret_key
+.claude
+__pycache__
+.svelte-kit
+node_modules
+build
