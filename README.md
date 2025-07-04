@@ -4,6 +4,7 @@ A comprehensive research automation pipeline built with LangGraph and OpenWebUI 
 
 ## Table of Contents
 
+- [🚀 Quick Start](#-quick-start)
 - [🏗️ Architecture Overview](#️-architecture-overview)
 - [🔧 Core Components](#-core-components)
   - [State Management](#state-management)
@@ -26,6 +27,21 @@ A comprehensive research automation pipeline built with LangGraph and OpenWebUI 
   - [Direct API Usage](#direct-api-usage)
 - [📊 Performance & Features](#-performance--features)
 - [🔍 Technical Details](#-technical-details)
+
+---
+
+## 🚀 Quick Start
+
+To quickly get started with the MonkeyResearcher WebUI components, follow the setup guide:
+
+**[📋 WebUI Setup Guide](webui/README.md)** - Complete instructions for setting up and running the web interface stack
+
+The WebUI setup includes:
+- **SearXNG** - Privacy-focused web search engine
+- **Local Pipeline** - Backend data processing services
+- **Open WebUI** - Main web interface for interaction
+
+For detailed pipeline documentation and advanced configuration, continue reading the sections below.
 
 ---
 
