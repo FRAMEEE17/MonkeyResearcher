@@ -8,10 +8,6 @@
                 "arxiv-mcp-server",
                 "--storage-path", "~/.arxiv-mcp-server/papers"
             ]
-        },
-        "mem0": {
-          "transport": "sse",
-          "url": "http://localhost:8050/sse"
         }
     }
 }
