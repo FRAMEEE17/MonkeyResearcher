@@ -1,6 +1,7 @@
 # Deep Researcher Pipeline Documentation
 
-A comprehensive research automation pipeline built with LangGraph and OpenWebUI integration.
+### A comprehensive research automation pipeline built with LangGraph and OpenWebUI integration.
+
 <img width="952" alt="image" src="https://github.com/user-attachments/assets/cbfd36d0-f834-4d67-9d86-d757c6816a2d" />
 
 ## Table of Contents
