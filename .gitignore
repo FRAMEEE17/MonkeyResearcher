@@ -1,6 +1,250 @@
+# Security - Secrets and Keys
 .webui_secret_key
+*.key
+*.pem
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+!.env.template
+config.json
+**/config.json
+!**/config.json.template
+!**/config.json.example
+secrets/
+credentials/
+*.secret
+.secrets
+.credentials
+*_secret_*
+*_key_*
+*_token_*
+auth.json
+*.auth
+api_keys.txt
+.api_keys
+oauth_secrets.json
+
+# Claude AI Cache and Instructions
 .claude
-__pycache__
-.svelte-kit
-node_modules
-build
+.claude/
+**/.claude/
+CLAUDE.md
+**/CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+.env
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+.yarn-integrity
+.pnp.*
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+.tscache/
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# ESLint cache
+.eslintcache
+
+# Parcel cache
+.parcel-cache/
+
+# Webpack
+.webpack/
+
+# Rollup
+.rollup.cache/
+
+# Vite
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# SvelteKit
+.svelte-kit/
+
+# Storybook build outputs
+.out
+.storybook-out
+storybook-static/
+
+# Temporary folders
+.tmp/
+.temp/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Frontend Build (combined with Node.js build outputs above)
+.vercel/
+.netlify/
+
+# Logs and Debugging
+*.log
+logs/
+*.log.*
+debug.log
+error.log
+access.log
+combined.log
+
+# Database and Data
+*.db
+*.sqlite
+*.sqlite3
+data/
+db_data/
+postgres_data/
+mysql_data/
+*.dump
+*.sql
+
+# Docker and Kubernetes
+.dockerignore
+docker-compose.override.yml
+.docker/
+k8s-secrets.yaml
+*-secret.yaml
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS Generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Research Data and Outputs
+research_outputs/
+paper_downloads/
+search_cache/
+*.research
+temp_downloads/
+user_data/
+chat_history/
+conversation_logs/
+
+# Model and Training
+models/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.model
+*.weights
+*.safetensors
+training_logs/
+tensorboard_logs/
+wandb/
+
+# Temporary Files
+tmp/
+temp/
+.tmp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# System Files
+.system
+.cache/
+*.lock
+!package-lock.json
+!poetry.lock
+!uv.lock
+
+# Local Deep Researcher Test Files
+./test_memory_integration.py
+./intent_classifier_xlm.pth
+./intent_server.log
+./intent_server.py
+./label_encoder_xlm.pkl
+./tokenizer_final

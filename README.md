@@ -19,6 +19,8 @@ A comprehensive research automation pipeline built with LangGraph and OpenWebUI 
   - [OpenWebUI Integration](#openwebui-integration)
   - [MCP (Model Context Protocol)](#mcp-model-context-protocol)
   - [Search Strategies](#search-strategies)
+- [🧠 Intent Classification](#-intent-classification)
+- [💾 Content Memory System (Memoer-MCP)](#-content-memory-system-memoer-mcp)
 - [⚙️ Configuration](#️-configuration)
   - [Environment Variables](#environment-variables)
   - [Provider Settings](#provider-settings)
@@ -34,7 +36,7 @@ A comprehensive research automation pipeline built with LangGraph and OpenWebUI 
 
 To quickly get started with the MonkeyResearcher WebUI components, follow the setup guide:
 
-**[📋 WebUI Setup Guide](webui/README.md)** - Complete instructions for setting up and running the web interface stack
+**[📋 Services Setup Guide](services/README.md)** - Complete instructions for setting up and running the web interface stack
 
 ---
 
@@ -432,6 +434,233 @@ def parallel_search_coordinator(
 
 ---
 
+## 🧠 Intent Classification
+
+**File**: [`src/ollama_deep_researcher/intent_classifier.py`](services/local/local-deep-researcher/src/ollama_deep_researcher/intent_classifier.py)
+
+The intent classification system analyzes user queries to determine the optimal research strategy and routing approach.
+
+### Classification Strategies
+
+#### Rule-Based Classification
+```python
+def intent_rule_based(query: str) -> dict:
+    """Fast rule-based intent classification for common patterns"""
+    # URL detection
+    if re.search(r'https?://[^\s]+', query):
+        return {"intent": "url_analysis", "strategy": "url_fetch"}
+    
+    # Academic paper requests
+    if re.search(r'\b(paper|study|research|publication|article)\b', query, re.IGNORECASE):
+        return {"intent": "academic_research", "strategy": "web_search"}
+    
+    # Direct content requests
+    if re.search(r'\b(define|what is|explain|tell me about)\b', query, re.IGNORECASE):
+        return {"intent": "direct_content", "strategy": "web_search"}
+```
+
+#### LLM-Based Classification
+For complex queries, the system uses LLM-powered analysis to determine:
+- **Research depth requirements**
+- **Subject matter classification**
+- **Appropriate tool selection**
+- **Expected output format**
+
+### Intent Categories
+
+- **url_analysis**: Extract and analyze content from specific URLs
+- **academic_research**: Focus on scholarly sources and papers
+- **direct_content**: Simple information retrieval requests
+- **comprehensive_research**: Multi-source deep research requiring verification
+- **technical_analysis**: Technical documentation and specifications
+
+### Integration with Research Pipeline
+
+The intent classification results influence:
+1. **Tool Selection**: Academic queries prioritize ArXiv search
+2. **Search Strategy**: URL queries trigger content extraction
+3. **Verification Depth**: Complex topics get enhanced fact-checking
+4. **Source Weighting**: Academic sources prioritized for research queries
+
+---
+
+## 💾 Content Memory System (Memoer-MCP)
+
+**Location**: [`services/memoer-mcp/`](services/memoer-mcp/)
+
+The Content Memory system provides persistent storage and retrieval of research data using the Model Context Protocol (MCP). This enables the pipeline to learn from previous research and avoid redundant work.
+
+### Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Research Pipeline"
+        Research[Local Deep Researcher]
+        Finalize[finalize_summary node]
+    end
+    
+    subgraph "Memory System"
+        MemClient[Memory Client]
+        MCPServer[MCP Server]
+        Database[(SQLite Database)]
+    end
+    
+    subgraph "Storage Schema"
+        Memory[Memory Records]
+        Sources[Source Classification]
+        Metadata[Research Metadata]
+    end
+    
+    Research --> Finalize
+    Finalize --> MemClient
+    MemClient --> MCPServer
+    MCPServer --> Database
+    Database --> Memory
+    Database --> Sources
+    Database --> Metadata
+```
+
+### Core Features
+
+#### 🔄 Automatic Memory Capture
+Research memories are automatically captured during the `finalize_summary` stage:
+
+```python
+# Memory capture in finalize_summary node
+await capture_memory_safe(
+    content=final_report,
+    research_topic=state.research_topic,
+    memory_type="final_report",
+    source_reliability=overall_reliability,
+    source_type=primary_source_type,
+    research_loop_count=state.research_loop_count,
+    metadata={
+        "sources_count": len(unique_sources),
+        "research_depth": state.research_loop_count,
+        "source_breakdown": source_types
+    }
+)
+```
+
+#### 📊 Enhanced Source Classification
+The system includes comprehensive domain classification for source reliability:
+
+- **High Reliability Sources**: ArXiv, IEEE, ACM, Nature, Science, Academic institutions
+- **Medium Reliability Sources**: Government sites, established news outlets, Wikipedia
+- **Low Reliability Sources**: Personal blogs, forums, unverified content
+
+#### 🗄️ Database Schema
+**File**: [`services/memoer-mcp/prisma/schema.prisma`](services/memoer-mcp/prisma/schema.prisma)
+
+```prisma
+model Memory {
+  id                String   @id @default(uuid())
+  content           String
+  researchTopic     String?
+  memoryType        String   @default("general")
+  sourceReliability String?  // "high", "medium", "low"
+  sourceType        String?  // "academic", "web", "technical"
+  researchLoopCount Int?
+  metadata          String?  // JSON string for additional data
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  // ... relationships and additional fields
+}
+```
+
+### MCP Integration
+
+#### Dynamic Path Detection
+**File**: [`services/local/local-deep-researcher/src/ollama_deep_researcher/memory_client.py`](services/local/local-deep-researcher/src/ollama_deep_researcher/memory_client.py)
+
+The memory client automatically detects the MCP server path:
+
+```python
+def find_memoer_mcp_path() -> str:
+    """Auto-detect the memoer-mcp server path"""
+    current_path = pathlib.Path(__file__).resolve()
+    
+    search_paths = [
+        current_path.parents[4] / "memoer-mcp",
+        current_path.parents[3] / "memoer-mcp",
+        current_path.parents[5] / "memoer-mcp",
+    ]
+    
+    for path in search_paths:
+        if path.exists() and (path / "dist" / "index.js").exists():
+            return str(path)
+```
+
+#### MCP Protocol Communication
+The system uses proper MCP initialization sequence:
+
+```python
+# MCP initialization and tool call
+init_request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", ...}
+initialized_request = {"jsonrpc": "2.0", "id": 2, "method": "initialized", ...}
+tool_request = {"jsonrpc": "2.0", "id": 3, "method": "tools/call", ...}
+```
+
+### Memory Operations
+
+#### Available MCP Tools
+
+1. **createResearchMemory**: Store new research findings
+   ```json
+   {
+     "content": "Research summary text",
+     "researchTopic": "quantum computing",
+     "memoryType": "final_report",
+     "sourceReliability": "high",
+     "sourceType": "academic"
+   }
+   ```
+
+2. **getResearchMemories**: Retrieve similar research
+   ```json
+   {
+     "researchTopic": "quantum computing",
+     "limit": 5
+   }
+   ```
+
+3. **createMemory**: General memory storage
+4. **getMemories**: General memory retrieval
+
+### Configuration Options
+
+#### Memory Settings
+**File**: [`services/local/local-deep-researcher/src/ollama_deep_researcher/configuration.py`](services/local/local-deep-researcher/src/ollama_deep_researcher/configuration.py)
+
+```python
+memory_enabled: bool = Field(default=True)
+memory_mcp_server_path: str = Field(default="")  # Auto-detected
+memory_capture_level: Literal["minimal", "essential", "comprehensive"] = Field(default="essential")
+```
+
+#### Capture Levels
+
+- **minimal**: Only final reports
+- **essential**: Final reports + source metadata  
+- **comprehensive**: All research stages + detailed analytics
+
+### Benefits
+
+- **🔄 Avoid Redundant Research**: Check existing memories before starting new research
+- **📊 Research Analytics**: Track research patterns and effectiveness
+- **🎯 Improved Accuracy**: Learn from previous fact-checking results
+- **⚡ Faster Responses**: Leverage cached research for similar topics
+- **🔗 Source Tracking**: Maintain comprehensive source reliability database
+
+### Non-Blocking Operation
+
+The memory system is designed with graceful degradation:
+- Memory capture failures don't interrupt the research pipeline
+- System continues normally when memory is disabled
+- Automatic fallbacks for configuration issues
+
+---
+
 ## ⚙️ Configuration
 
 ### Environment Variables
@@ -544,6 +773,11 @@ final_report = result["running_summary"]
 - ✅ **Configurable Research Depth**: Adjustable iteration count
 - ✅ **Enhanced URL Processing**: URL content extraction followed by comprehensive tool-enhanced research
 - ✅ **Academic Integration**: ArXiv paper search and processing
+- ✅ **Intent Classification**: Smart query analysis for optimal research routing
+- ✅ **Content Memory System**: Persistent storage and retrieval using MCP protocol
+- ✅ **Source Reliability Classification**: 200+ domains categorized by reliability
+- ✅ **Automatic Memory Capture**: Non-blocking research history storage
+- ✅ **Dynamic Path Detection**: Auto-discovery of service dependencies
 
 ### Performance Optimizations
 
@@ -587,7 +821,7 @@ dependencies = [
 ### File Structure
 
 ```
-src/ollama_deep_researcher/
+services/local/local-deep-researcher/src/ollama_deep_researcher/
 ├── __init__.py                 # Package initialization
 ├── configuration.py           # Configuration management
 ├── graph.py                   # Main LangGraph workflow
@@ -598,7 +832,19 @@ src/ollama_deep_researcher/
 ├── mcp_client.py             # MCP client for ArXiv
 ├── intent_classifier.py      # Query intent analysis
 ├── prompts.py                # LLM prompt templates
+├── memory_client.py          # Memory system integration
 └── openai_compatible.py      # OpenAI-compatible LLM client
+
+services/memoer-mcp/
+├── src/
+│   ├── index.ts              # MCP server entry point
+│   └── server.ts             # MCP server implementation
+├── prisma/
+│   ├── schema.prisma         # Database schema
+│   └── memoer.db            # SQLite database
+├── dist/                     # Compiled TypeScript
+├── package.json              # Node.js dependencies
+└── tsconfig.json            # TypeScript configuration
 ```
 
 ### Integration Points

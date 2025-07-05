@@ -1,0 +1,39 @@
+{
+  "name": "memoer-mcp",
+  "version": "0.0.16",
+  "description": "MCP server for Memoer",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "memoer-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "prepublishOnly": "prisma generate && npm run build",
+    "prepare": "prisma generate",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "postinstall": "prisma generate"
+  },
+  "files": [
+    "dist/",
+    "prisma/schema.prisma",
+    "node_modules/@prisma/client/"
+  ],
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@prisma/client": "^6.11.1",
+    "@qdrant/js-client-rest": "^1.14.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "prisma": "^6.11.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
