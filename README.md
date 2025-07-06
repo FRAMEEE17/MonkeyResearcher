@@ -2,6 +2,10 @@
 
 ##### A comprehensive research automation pipeline built with LangGraph and OpenWebUI integration.
 
+
+https://github.com/user-attachments/assets/490c4293-7be2-41c5-af84-79b0abda475c
+
+
 <img width="952" alt="image" src="https://github.com/user-attachments/assets/cbfd36d0-f834-4d67-9d86-d757c6816a2d" />
 
 ## Table of Contents
@@ -493,6 +497,7 @@ The intent classification results influence:
 The Content Memory system provides persistent storage and retrieval of research data using the Model Context Protocol (MCP). This enables the pipeline to learn from previous research and avoid redundant work.
 
 ### Architecture Overview
+![MCP Client (2)](https://github.com/user-attachments/assets/78e29d7a-62b4-4b1a-930c-68f38fa08d3f)
 
 ```mermaid
 graph TB
