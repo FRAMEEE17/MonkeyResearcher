@@ -100,20 +100,23 @@ async def _tool_enhanced_research_async(state: SummaryState, config: RunnableCon
     if not is_openwebui_initialized():
         print("Initializing OpenWebUI integration...")
         try:
-            await initialize_openwebui_tools("http://192.168.19.61:9937")
+            # Use configured ArXiv MCP server URL instead of hardcoded IP
+            await initialize_openwebui_tools(configurable.arxiv_mcp_server_url)
             if is_openwebui_initialized():
                 print("✅ OpenWebUI integration initialized successfully")
             else:
                 print("⚠️ OpenWebUI integration failed to initialize")
         except Exception as e:
             print(f"⚠️ OpenWebUI initialization error: {str(e)}")
+            # Continue without OpenWebUI tools - this is not critical
     
     # Get available tools for LLM
     available_tools = get_tools_for_llm()
     
     if not available_tools:
-        print("⚠️ No tools available, skipping tool-enhanced research")
-        return {"tool_results": [], "enhanced_context": ""}
+        print("⚠️ No tools available, continuing with basic web search")
+        # Don't return early - we can still do web search without tools
+        available_tools = []
     
     # Choose the appropriate LLM based on the provider
     if configurable.llm_provider == "openai_compatible":
@@ -130,8 +133,9 @@ async def _tool_enhanced_research_async(state: SummaryState, config: RunnableCon
             temperature=0.1
         )
     
-    # Prepare tool calling prompt with more specific instructions
-    tool_prompt = f"""You are a research assistant with access to various tools. Your task is to gather comprehensive information about: {state.research_topic}
+    # Prepare appropriate prompt based on tool availability
+    if available_tools:
+        tool_prompt = f"""You are a research assistant with access to various tools. Your task is to gather comprehensive information about: {state.research_topic}
 
 Available tools: {[tool['function']['name'] for tool in available_tools]}
 
@@ -144,6 +148,14 @@ Research topic: {state.research_topic}
 Current research context: {state.running_summary if state.running_summary else 'Starting fresh research'}
 
 Please use multiple tools to gather comprehensive information from different sources."""
+    else:
+        # Fallback when no tools are available
+        tool_prompt = f"""You are a research assistant. Unfortunately, external tools are not available right now due to connection issues.
+
+Research topic: {state.research_topic}
+Current research context: {state.running_summary if state.running_summary else 'Starting fresh research'}
+
+Please provide guidance on what research should be done and suggest web search queries that would be helpful for this topic."""
 
     try:
         # Use manual tool calling approach (OpenWebUI pattern)
@@ -495,7 +507,7 @@ def fetch_url_content(state: SummaryState, config: RunnableConfig):
             
             sources = format_sources(search_results)
             
-            print(f"✅ Content extracted ({len(url_content.get('content', ''))[:50]}...)")
+            print(f"✅ Content extracted ({len(url_content.get('content', ''))} chars, preview: {url_content.get('content', '')[:50]}...)")
             
             # Store the URL content as the first research result
             # The research loop will continue to gather additional related information
@@ -542,7 +554,7 @@ def web_research(state: SummaryState, config: RunnableConfig):
             search_results = parallel_search_coordinator(
                 state.search_query,
                 search_strategy="mcp",
-                max_results=8,
+                max_results=5,
                 fetch_full_page=configurable.fetch_full_page,
                 mcp_server_url=configurable.arxiv_mcp_server_url
             )
@@ -551,14 +563,14 @@ def web_research(state: SummaryState, config: RunnableConfig):
             search_results = parallel_search_coordinator(
                 state.search_query,
                 search_strategy="web_search",
-                max_results=8,
+                max_results=5,
                 fetch_full_page=configurable.fetch_full_page
             )
         
         # Format search results
         search_str = deduplicate_and_format_sources(
             search_results, 
-            max_tokens_per_source=8000, 
+            max_tokens_per_source=2000, 
             fetch_full_page=configurable.fetch_full_page
         )
         # Process results for return
@@ -1155,14 +1167,14 @@ Please generate a comprehensive research report based on this information. The r
         llm = ChatOpenAICompatible(
             base_url=configurable.openai_compatible_base_url,
             model=configurable.local_llm,
-            temperature=0.3,
+            temperature=0.5,
             api_key=configurable.openai_compatible_api_key,
         )
     else:  # Default to Ollama
         llm = ChatOllama(
             base_url=configurable.ollama_base_url, 
             model=configurable.local_llm, 
-            temperature=0.3
+            temperature=0.5
         )
     
     # Generate the report using the LLM
@@ -1190,8 +1202,11 @@ Please generate a comprehensive research report based on this information. The r
     final_report_sections = []
     final_report_sections.append(generated_report)
     
-    # If no sources section exists but we have sources to add
-    if not any(pattern in generated_report for pattern in ["### Sources:"]) and unique_sources:
+    # Always ensure we have proper sources section with actual research sources
+    has_sources_section = any(pattern in generated_report for pattern in ["### Sources:"])
+    
+    if not has_sources_section and unique_sources:
+        # No sources section exists, add one
         final_report_sections.append("")
         final_report_sections.append("### Sources:")
         final_report_sections.append("")
@@ -1322,12 +1337,85 @@ Please generate a comprehensive research report based on this information. The r
                         # Commercial & Marketing Sources
                         elif any(domain in url for domain in [
                             'hubspot.com', 'mailchimp.com', 'shopify.com', 'squarespace.com',
-                            'wix.com', 'wordpress.com'
+                            'wix.com', 'wordpress.com'\
+                                
                         ]):
                             reliability = "Low"
                             source_type = "Commercial Source"
                         
-                        final_report_sections.append(f"* **{title}**: {url} (Reliability: {reliability} - {source_type})")
+                        # Apply source reliability filtering
+                        should_include_source = True
+                        filter_reason = None
+                        
+                        if configurable.filter_low_reliability and reliability == "Low":
+                            should_include_source = False
+                            filter_reason = "filter_low_reliability=True"
+                        elif configurable.min_source_reliability == "Medium" and reliability == "Low":
+                            should_include_source = False
+                            filter_reason = "min_source_reliability=Medium"
+                        elif configurable.min_source_reliability == "High" and reliability in ["Low", "Medium"]:
+                            should_include_source = False
+                            filter_reason = f"min_source_reliability=High (source is {reliability})"
+                        
+                        if not should_include_source:
+                            print(f"🚫 Filtered source: {title} (Reliability: {reliability}) - Reason: {filter_reason}")
+                        else:
+                            final_report_sections.append(f"* **{title}**: {url} (Reliability: {reliability} - {source_type})")
+                            print(f"✅ Included source: {title} (Reliability: {reliability} - {source_type})")
+                    else:
+                        final_report_sections.append(f"* {source_line}")
+                else:
+                    final_report_sections.append(f"* {source_line}")
+    elif has_sources_section and unique_sources:
+        # LLM already generated a sources section, but we need to append our actual research sources
+        final_report_sections.append("")
+        final_report_sections.append("### Additional Research Sources:")
+        final_report_sections.append("")
+        
+        # Format and add the actual sources we gathered
+        for source in unique_sources:
+            if source.strip():
+                source_line = source.strip()
+                if ':' in source_line and any(protocol in source_line for protocol in ['http://', 'https://', 'www.']):
+                    parts = source_line.split(':', 1)
+                    if len(parts) == 2:
+                        title = parts[0].strip()
+                        url = parts[1].strip()
+                        
+                        # Apply the same reliability classification as above
+                        reliability = "Medium"
+                        source_type = "Web Source"
+                        
+                        # ArXiv papers (most important for academic queries)
+                        if 'arxiv.org' in url:
+                            reliability = "High"
+                            source_type = "Peer-Reviewed Preprint"
+                        elif any(domain in url for domain in [
+                            'ieee.org', 'acm.org', 'nature.com', 'science.org', 'sciencedirect.com',
+                            'springer.com', 'elsevier.com', 'wiley.com'
+                        ]):
+                            reliability = "High" 
+                            source_type = "Academic Publication"
+                        
+                        # Apply source reliability filtering
+                        should_include_source = True
+                        filter_reason = None
+                        
+                        if configurable.filter_low_reliability and reliability == "Low":
+                            should_include_source = False
+                            filter_reason = "filter_low_reliability=True"
+                        elif configurable.min_source_reliability == "Medium" and reliability == "Low":
+                            should_include_source = False
+                            filter_reason = "min_source_reliability=Medium"
+                        elif configurable.min_source_reliability == "High" and reliability in ["Low", "Medium"]:
+                            should_include_source = False
+                            filter_reason = f"min_source_reliability=High (source is {reliability})"
+                        
+                        if not should_include_source:
+                            print(f"🚫 Filtered additional source: {title} (Reliability: {reliability}) - Reason: {filter_reason}")
+                        else:
+                            final_report_sections.append(f"* **{title}**: {url} (Reliability: {reliability} - {source_type})")
+                            print(f"✅ Added additional source: {title} (Reliability: {reliability} - {source_type})")
                     else:
                         final_report_sections.append(f"* {source_line}")
                 else:
@@ -1498,6 +1586,7 @@ def route_research(state: SummaryState, config: RunnableConfig) -> Literal["fina
 
 def route_after_intent(state: SummaryState, config: RunnableConfig) -> Literal["fetch_url_content", "tool_enhanced_research"]:
     """Route after intent classification to either fetch URL content first or start with tool-enhanced research."""
+    _ = config  # Unused but required by LangGraph interface
     if state.search_strategy in ["url_fetch"]:
         return "fetch_url_content"
     else:
@@ -1505,6 +1594,7 @@ def route_after_intent(state: SummaryState, config: RunnableConfig) -> Literal["
 
 def route_after_url_fetch(state: SummaryState, config: RunnableConfig) -> Literal["tool_enhanced_research", "summarize_sources"]:
     """Route after URL fetch to either continue with tool-enhanced research or go straight to summarization."""
+    _ = config  # Unused but required by LangGraph interface
     if state.input_analysis.get('direct_fetch', False):
         print("📋 Direct content: proceeding to summarization")
         return "summarize_sources"  # Skip research for direct content requests
@@ -1528,6 +1618,7 @@ builder.add_node("finalize_summary", finalize_summary)
 
 def route_after_summarize(state: SummaryState, config: RunnableConfig) -> Literal["generate_verification_questions", "finalize_summary"]:
     """Route after summarization to either do verification or finalize for direct content requests."""
+    _ = config  # Unused but required by LangGraph interface
     # Skip verification for URL fetch strategies and direct content requests to prevent background processing
     if (state.search_strategy == "url_fetch" and state.input_analysis.get('direct_fetch', False)) or \
        state.input_analysis.get('direct_fetch', False):
