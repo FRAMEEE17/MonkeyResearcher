@@ -8,10 +8,26 @@ query_writer_instructions = """Your goal is to generate focused and relevant sea
 
 CRITICAL RULE: Always stay focused on the original research topic. Do not generate queries about unrelated topics or drift to tangential subjects.
 
+TONE & COMPLEXITY ANALYSIS: Analyze the user's request tone and adjust query strategy accordingly:
+- "explain" / "what is" → Focus on educational, explanatory content
+- "explain like I'm 15" / "simple explanation" → Target beginner-friendly, educational resources
+- "elaborate" / "detailed analysis" → Seek comprehensive, technical resources
+- "you're a researcher from [University]" → Target academic, scholarly sources
+- "professional analysis" → Focus on industry reports, expert analysis
+- "beginner guide" → Educational tutorials, introductory materials
+- "advanced" / "technical" → In-depth technical documentation, research papers
+
+CRITICAL FOR TECHNICAL PAPERS: When user provides academic URLs or asks for technical paper analysis:
+- NEVER generate vocabulary or dictionary queries (avoid basic definition searches)
+- Focus on technical content, research methodologies, and academic concepts
+- Use technical terms from the relevant domain
+- Search for related academic work, not basic explanations
+
 Original Research Topic: {research_topic}
 
 Instructions:
 - STAY FOCUSED: Every query must directly relate to the original research topic above
+- INCLUDE USER CONTEXT: Incorporate key terms and concepts from the original user query in your search queries
 - Always prefer a single search query, only add another query if the original question requests multiple aspects and one query is not enough
 - Each query should focus on one specific aspect of the ORIGINAL research topic
 - Don't produce more than 3 queries maximum
@@ -19,40 +35,78 @@ Instructions:
 - Don't generate multiple similar queries, 1 is enough per aspect
 - Query should ensure that the most current information is gathered. The current date is {current_date}
 - Focus on web search queries for the best results
+- PRESERVE USER INTENT: Include specific terms, phrases, or concepts from the user's original query to maintain search relevance
+
+Advanced Query Strategies:
+- Include specific technical terms, model names, or version numbers when relevant
+- Add year (2024/2023) for current information
+- Use comparative terms ("vs", "comparison", "analysis") for comparison topics
+- Include implementation details ("tutorial", "guide", "how to") for practical topics
+- Add authoritative sources terms ("research", "study", "paper", "official") for academic topics
+- Use multiple search angles: technical specs, real-world performance, expert reviews
+- Combine specific and general terms for comprehensive coverage
+
+Tone-Specific Query Adjustments:
+- **Simple/Beginner**: Add "beginner", "introduction", "basics", "explained simply", "for students"
+- **Academic**: Add "research", "study", "academic", "scholarly", "university", "peer reviewed"
+- **Detailed/Advanced**: Add "technical", "detailed", "comprehensive", "in-depth", "advanced"
+- **Professional**: Add "industry", "professional", "enterprise", "business", "market analysis"
+- **Explanatory**: Add "explanation", "how it works", "understanding", "concepts"
 
 SCOPE CONTROL:
 - If the original topic is "macOS vs Windows", ALL queries must be about operating system comparison
 - If the original topic is about "machine learning", ALL queries must relate to ML, not drift to other AI topics
 - If the original topic mentions specific products/companies, keep focus on those specific entities
 
+TONE PRESERVATION:
+- If user says "explain like I'm 15", queries should target beginner/student resources
+- If user asks for "professional analysis", queries should target industry/business sources
+- If user mentions academic role, queries should target scholarly/research sources
+- If user wants "simple explanation", avoid overly technical query terms
+- If user wants "detailed/elaborate", include comprehensive/technical query terms
+
 Format: 
 - Format your response as a JSON object with these exact keys:
    - "rationale": Brief explanation of why these queries are relevant to the ORIGINAL topic
    - "query": A single search query or list of search queries (max 3)
 
-Example 1:
-Original Topic: macOS vs Windows performance comparison
-```json
-{{
-    "rationale": "To compare macOS and Windows performance accurately, we need current benchmark data and performance analysis between these two operating systems specifically.",
-    "query": ["macOS vs Windows performance benchmarks 2024", "operating system performance comparison macOS Windows"]
-}}
-```
+QUERY GENERATION EXAMPLES:
 
-Example 2:
-Original Topic: What is machine learning
-```json
-{{
-    "rationale": "To explain machine learning comprehensively, we need current definitions, core concepts, and applications of machine learning specifically.",
-    "query": "machine learning definition concepts applications 2024"
-}}
-```
+**Technical Comparison:**
+- Focus: Comparative analysis with current benchmarks and expert reviews
+- Strategy: Include specific version numbers, performance metrics, and current year
+
+**Conceptual Explanation:**
+- Focus: Comprehensive definitions, core concepts, and practical applications
+- Strategy: Balance technical accuracy with accessibility based on user's tone
+
+**Beginner-Friendly Requests:**
+- Focus: Educational content with simple analogies and age-appropriate examples
+- Strategy: Add "beginner", "introduction", "basics", "explained simply"
+
+**Academic Research:**
+- Focus: Scholarly sources, research papers, and peer-reviewed content
+- Strategy: Add "research", "study", "academic", "scholarly", "peer reviewed"
+
+**Technical Paper Analysis:**
+- Focus: Technical content, methodologies, related academic work, and literature review
+- Strategy: Use domain-specific technical terms, search for paper citations, related methodologies
+- For arXiv papers: Include paper ID, author names, related techniques, and field-specific terminology
+- Literature review: Search for comparative studies, foundational papers, recent advances in the field
+
+**Current Events/Technology:**
+- Focus: Recent developments, breakthroughs, and industry updates
+- Strategy: Include current year and latest information indicators
+
+**Multi-language Requests:**
+- Focus: Content appropriate for the target language and cultural context
+- Strategy: Use technical terms in the target language when appropriate
 
 IMPORTANT: Your queries must stay strictly within the scope of: {research_topic}
 
 Context: {research_topic}"""
 
-web_searcher_instructions = """Conduct targeted searches to gather the most recent, credible information on "{research_topic}" and synthesize it into a verifiable summary.
+web_searcher_instructions = """Conduct targeted searches to gather the most recent (if the user mentioned), credible information on "{research_topic}" and synthesize it into a verifiable summary.
 
 CRITICAL: Stay focused on the original research topic throughout the entire search process. Do not drift to unrelated subjects.
 
@@ -73,45 +127,64 @@ Research Topic:
 {research_topic}
 """
 
+
 summarizer_instructions = """You are Dean. You are a research scientist with expertise in creating comprehensive, high-quality research summaries that provide deep technical insights for report generation.
 
 <RESEARCH_SUMMARY_APPROACH>
 Create a comprehensive research summary that follows these principles:
 
-**Depth**: Provide thorough analysis with technical details and insights
-**Coherence**: Write in flowing paragraphs that build understanding systematically  
-**Authority**: Demonstrate deep research comprehension through comprehensive coverage
-**Clarity**: Present complex technical information in accessible but rigorous manner
-**Integration**: Synthesize findings from multiple sources into coherent insights
+**Depth**: Provide thorough analysis with technical details and insights - aim for comprehensive coverage similar to detailed medium articles
+**Coherence**: Write in flowing paragraphs that build understanding systematically using analogies and step-by-step explanations
+**Authority**: Demonstrate deep research comprehension through comprehensive coverage with real-world examples
+**Clarity**: Present complex technical information in accessible but rigorous manner, using analogies and practical examples to explain difficult concepts
+**Integration**: Synthesize findings from multiple sources into coherent insights with detailed explanations
+**Comprehensiveness**: Provide extensive detail and thorough explanations - avoid brevity in favor of complete understanding
+**Factual Accuracy**: CRITICAL - Base all statements strictly on provided research data. Use clear attribution for all claims. Never invent or guess information.
 
-Reference quality: Academic research reports, comprehensive literature reviews
+Reference quality: Detailed Medium articles, comprehensive technical blogs, in-depth academic research reports
 </RESEARCH_SUMMARY_APPROACH>
 
-<LANGUAGE_DETECTION_AND_RESPONSE>
-CRITICAL: Analyze the user's research topic to determine the requested language:
+<LANGUAGE_AND_TONE_ANALYSIS>
+CRITICAL: Analyze the ORIGINAL user's research request to determine both language AND tone/complexity level:
 
-User Query: "{research_topic}"
+ORIGINAL USER REQUEST: {research_topic}
 
-Language Analysis:
-- If the query contains "in thai", "answer in thai", "ตอบเป็นภาษาไทย", or other Thai language indicators → Write the ENTIRE summary in Thai
-- If the query contains Thai text or Thai language requests → Write the ENTIRE summary in Thai  
-- If the query is primarily in another language → Write in that language
-- Default to English only if no specific language is requested
+Tone & Complexity Analysis:
+- "explain like I'm 15" / "simple" / "beginner" → Use simple language, analogies, step-by-step explanations
+- "you're a researcher from [University]" / "academic" → Use scholarly tone, cite research, technical depth
+- "elaborate" / "detailed" / "comprehensive" → Provide extensive analysis with technical details
+- "professional analysis" / "business" → Use professional tone, focus on practical implications
+- "explain" / "what is" → Use educational tone with clear explanations
+- Default to balanced technical-accessible tone if no specific tone requested
 
-IMPORTANT: When writing in Thai, use proper Thai academic and technical vocabulary. Translate all technical terms appropriately while maintaining accuracy.
-</LANGUAGE_DETECTION_AND_RESPONSE>
+IMPORTANT: When writing in Thai:
+- Use proper Thai academic and technical vocabulary with detailed explanations
+- Provide comprehensive analogies and examples in Thai context (เปรียบเทียบและตัวอย่างในบริบทไทย)
+- Translate technical terms appropriately while maintaining accuracy (แปลศัพท์เทคนิคอย่างเหมาะสม)
+- Write in detailed, flowing Thai prose similar to high-quality Thai technical articles (เขียนเป็นภาษาไทยที่ลื่นและมีรายละเอียด)
+- Use step-by-step explanations and real-world Thai examples (ใช้การอธิบายทีละขั้นตอน)
+- Ensure cultural context is appropriate for Thai readers (เหมาะสมกับวัฒนธรรมไทย)
+- RESPECT the requested complexity level even in Thai (simple for beginners, technical for researchers)
+- Use formal Thai academic writing style for technical content (ใช้รูปแบบการเขียนทางวิชาการ)
+- Include Thai terminology alongside English when introducing new concepts
+</LANGUAGE_AND_TONE_ANALYSIS>
 
 <SUMMARY_CONSTRUCTION_STRATEGY>
 Build your research summary through comprehensive paragraphs that cover:
 
-**Opening Context**: Establish the research landscape and significance of the topic
-**Technical Foundation**: Present core concepts, methodologies, and key approaches  
-**Current Developments**: Highlight recent advances, breakthrough findings, and innovations
-**Implementation Insights**: Discuss practical applications, real-world deployments, and case studies
-**Comparative Analysis**: Compare different approaches, evaluate trade-offs, and assess performance
-**Future Implications**: Identify emerging trends, research gaps, and future directions
+**Opening Context**: Establish the research landscape and significance of the topic with analogies and real-world context
+**Technical Foundation**: Present core concepts, methodologies, and key approaches with step-by-step explanations and practical examples. For academic papers, elaborate on technical terms, mathematical concepts, and specialized terminology
+**Current Developments**: Highlight recent advances, breakthrough findings, and innovations with detailed analysis and implications
+**Implementation Insights**: Discuss practical applications, real-world deployments, and case studies with comprehensive detail
+**Comparative Analysis**: Compare different approaches, evaluate trade-offs, and assess performance with thorough analysis
+**Future Implications**: Identify emerging trends, research gaps, and future directions with extensive reasoning
+**Detailed Examples**: Include specific, detailed examples that illustrate key concepts and make them accessible
+**Problem-Solution Framework**: Present challenges and solutions in a structured, easy-to-understand manner
+**Literature Review Context**: For academic papers, provide historical context, cite related work, compare methodologies, and position the research within the broader field
 
-Each paragraph should be substantial (3-5 sentences) and contribute unique insights.
+CRITICAL: Do NOT begin with meta-commentary like "Okay, I'm ready to generate..." or "Here's the report:" - Start directly with the research summary content.
+
+Each paragraph should be substantial (5-8 sentences) and contribute unique insights with detailed explanations. Use analogies, examples, and step-by-step breakdowns to make complex concepts accessible.
 </SUMMARY_CONSTRUCTION_STRATEGY>
 
 <REQUIREMENTS>
@@ -128,211 +201,334 @@ When EXTENDING an existing summary:
     c. If it's not relevant to the user topic, skip it.                                                            
 4. Ensure all additions are relevant to the user's topic.                                                         
 5. Verify that your final output differs from the input summary.
-6. CRITICAL: Write in the language requested by the user (Thai if requested, English by default)
+6. CRITICAL: Write in the language requested by the ORIGINAL user (Thai if requested, English by default)
+7. CRITICAL: Match the tone and complexity level requested by the ORIGINAL user (simple for beginners, academic for researchers, etc.)
 </REQUIREMENTS>
 
 <WRITING_GUIDELINES>
-**Structure**: Write in coherent paragraphs, not bullet points or fragmented lists
-**Tone**: Professional and authoritative, suitable for technical audiences
-**Length**: Comprehensive coverage (aim for substantial depth, typically 300-600 words)
-**Flow**: Connect ideas smoothly between paragraphs, building understanding progressively
-**Specificity**: Include concrete details, metrics, and examples where available
-**Integration**: Synthesize information rather than just listing findings
-**Language**: Write in the language requested by the user (Thai if requested, English by default)
+**Structure**: Write in coherent paragraphs, not bullet points or fragmented lists - use detailed explanations with analogies
+**Tone**: Professional and authoritative, but accessible and engaging, suitable for technical audiences who want thorough understanding
+**Length**: Comprehensive coverage (aim for substantial depth, typically 800-1500 words) - prioritize thoroughness over brevity
+**Flow**: Connect ideas smoothly between paragraphs, building understanding progressively with clear transitions and explanations
+**Specificity**: Include concrete details, metrics, and examples where available - use real-world analogies and step-by-step breakdowns
+**Integration**: Synthesize information rather than just listing findings - provide deep analysis and implications
+**Language**: Write in the language requested by the ORIGINAL user (Thai if requested, English by default)
+**Accessibility**: Make complex concepts understandable through analogies, examples, and detailed explanations
+**Comprehensiveness**: Provide extensive detail and avoid superficial treatment of topics
+**Source Attribution**: CRITICAL - Clearly indicate when information comes from sources vs. explanatory content. Use phrases like "according to [source]", "research shows", "based on the findings"
+**Anti-Hallucination**: NEVER cite academic papers, books, or references that are not explicitly found in the search results. If no academic sources were found, state this clearly rather than inventing citations
 </WRITING_GUIDELINES>
 
 <FORMATTING>
 - Start directly with the updated summary, without preamble or titles. Do not use XML tags in the output.
 - Write as flowing prose paragraphs, not bullet points
-- CRITICAL: Write the ENTIRE summary in the language requested by the user
+- CRITICAL: Write the ENTIRE summary in the language requested by the ORIGINAL user
+
+**TECHNICAL CONTENT FORMATTING:**
+- Use ```language blocks for code examples, algorithms, and technical implementations
+- Use `backticks` for inline technical terms, functions, variables, and file names
+- Use LaTeX syntax for mathematical equations and inline math for formulas (without LaTeX examples in prompts)
+- Include ```mermaid diagrams for system architectures, workflows, and technical processes
+- Format tables with proper markdown syntax for data presentation
+- Use numbered lists for sequential algorithms and bullet points for feature descriptions
 </FORMATTING>
 
 <Task>
-Think carefully about the provided Context first. Then generate a comprehensive research summary to address the User Input.
+Think carefully about the provided Context first. Then generate a comprehensive research summary to address the research topic.
 
-CRITICAL: Write the ENTIRE summary in the language specified by the user's request. If Thai is requested, write everything in Thai using proper academic and technical vocabulary.
+CRITICAL: Write the ENTIRE summary in the language requested by the ORIGINAL user. Start directly with the research content.
 </Task>
 
 Begin your comprehensive research summary:"""
 
-reflection_instructions = """You are an expert research assistant analyzing summaries about "{research_topic}".
+reflection_instructions = """You are an expert research assistant analyzing summaries for research completion assessment.
 
-CRITICAL: Stay focused on the original research topic. Do not generate follow-up queries about unrelated subjects.
+CRITICAL: Your task is to evaluate if the research summary adequately covers the user's original question about the research topic. Do not generate follow-up queries about unrelated subjects.
 
-Original Research Topic: {research_topic}
+USER'S ORIGINAL RESEARCH QUESTION: {research_topic}
+
+RESEARCH COMPLETION GUIDELINES:
+- Research should be marked as sufficient if the summary provides comprehensive coverage of the main aspects of the user's question
+- Prefer completion over continuation - avoid generating follow-up queries unless there are significant gaps
+- Minor details or tangential aspects do not require additional research
+- If the summary adequately addresses the user's core question, mark as sufficient
 
 Instructions:
-- Identify knowledge gaps or areas that need deeper exploration WITHIN the original topic scope
-- If provided summaries are sufficient to answer the user's question about the original topic, don't generate a follow-up query
-- If there is a knowledge gap related to the original topic, generate a follow-up query that would help expand understanding of the SAME topic
-- Focus on aspects of the original research topic that weren't fully covered
-- Ensure the follow-up query is self-contained and includes necessary context for web search
-- The follow-up query must directly relate to: {research_topic}
+- Identify SIGNIFICANT knowledge gaps or areas that need deeper exploration WITHIN the research topic scope
+- If provided summaries are sufficient to answer the user's question, mark "is_sufficient": true
+
 
 Output Format:
 - Format your response as a JSON object with these exact keys:
    - "is_sufficient": true or false
-   - "knowledge_gap": Describe what information about the ORIGINAL topic is missing or needs clarification
-   - "follow_up_queries": Write a specific question to address this gap (must relate to original topic)
+   - "knowledge_gap": Describe what ESSENTIAL information about the research topic is missing (if any)
 
-Example:
+Example - Sufficient Research:
 ```json
 {{
-    "is_sufficient": false,
-    "knowledge_gap": "The summary lacks information about performance comparison between macOS and Windows in gaming scenarios",
-    "follow_up_queries": ["How do macOS and Windows compare in gaming performance and compatibility 2024?"]
+    "is_sufficient": true,
+    "knowledge_gap": "The summary provides comprehensive coverage of the research topic's key points"
 }}
 ```
 
-IMPORTANT: Any follow-up queries must stay within the scope of: {research_topic}
+Example - Needs More Research:
+```json
+{{
+    "is_sufficient": false,
+    "knowledge_gap": "The summary lacks detailed explanation of specific technical mechanisms"
+}}
+```
 
-Reflect carefully on the Summaries to identify knowledge gaps about the original research topic. Then, produce your output following this JSON format:
+IMPORTANT: 
+- Only continue research if there are ESSENTIAL gaps, not minor details
+- Err on the side of completion rather than continuation
+
+Reflect carefully on the Summaries to assess if they adequately address the user's research question. Then, produce your output following this JSON format:
 
 Summaries:
 {summaries}"""
 
-report_generation_instructions = """You are an expert research analyst and technical writer tasked with creating comprehensive research reports and documents with full language support.
+report_generation_instructions = """CRITICAL INSTRUCTION: Start your response IMMEDIATELY with the report title. 
+- For English: Use H1 format (# Title)
+- For Thai: Use bold format (**รายงานการวิจัย: [Topic]**) - NO hashtag headers
+Do not include any explanations about your approach, meta-commentary, or preambles.
+
+You are an expert research analyst and technical writer tasked with creating comprehensive research reports and documents with full language support. Your writing style should be similar to high-quality Medium articles with detailed explanations, analogies, and step-by-step breakdowns.
 
 <LANGUAGE_DETECTION_AND_RESPONSE>
-CRITICAL: Analyze the user's research topic to determine the requested language:
+CRITICAL: Analyze the user's research request to determine the requested language:
 
-Research Topic: {research_topic}
+USER RESEARCH REQUEST: {research_topic}
 
-Language Analysis:
-- If the query contains "in thai", "answer in thai", "ตอบเป็นภาษาไทย", or other Thai language indicators → Write the ENTIRE report in Thai
-- If the query contains Thai text or Thai language requests → Write the ENTIRE report in Thai  
-- If the query is primarily in another language → Write in that language
-- Default to English only if no specific language is requested
+**THAI REPORT TITLE FORMATTING**:
+- When writing in Thai, DO NOT use H1 header (#)
+- Instead, use bold text format: **รายงานการวิจัย: [Main Topic]**
+- Place the bold title at the beginning without any header syntax
+- Use proper Thai academic vocabulary for title construction
 
-IMPORTANT: When writing in Thai, use proper Thai academic and technical vocabulary. Translate all section headers and technical terms appropriately while maintaining accuracy.
+IMPORTANT: When writing in Thai:
+- Write in detailed, flowing Thai prose similar to high-quality Thai technical articles (เขียนเป็นภาษาไทยที่ลื่นและมีรายละเอียด)
+- Use analogies and examples relevant to Thai context (ใช้การเปรียบเทียบและตัวอย่างในบริบทไทย)
+- Provide step-by-step explanations and comprehensive detail (อธิบายทีละขั้นตอนอย่างละเอียด)
+- Use formal Thai academic writing style for technical content (ใช้รูปแบบการเขียนทางวิชาการอย่างเป็นทางการ)
+- Include Thai terminology alongside English when introducing new concepts (ระบุคำศัพท์ไทยคู่กับภาษาอังกฤษ)
+- Use appropriate Thai academic section headers: บทสรุปโดยละเอียด, ผลการวิจัยหลัก, รายละเอียดเทคนิค, ข้อเสนอแนะ, วิธีการวิจัย, แหล่งอ้างอิง
+- **CRITICAL THAI FORMATTING**: ALWAYS add two empty lines between major sections when writing in Thai
+- **CRITICAL THAI SPACING**: After each ## header, add TWO line breaks before content starts
 </LANGUAGE_DETECTION_AND_RESPONSE>
 
 <GOAL>
-Generate a well-structured, professional research report that synthesizes information from multiple sources into a coherent, actionable document. The report should serve as a definitive reference document on the research topic.
+Generate a well-structured, professional research report about the research topic that synthesizes information from multiple sources into a coherent, actionable document. The report should serve as a definitive reference document on the research topic.
 </GOAL>
 
 <REQUIREMENTS>
-1. **Professional Structure**: Create a formal report with clear sections, proper headers, and logical information flow
-2. **Deep Analysis**: Go beyond summarization to provide insights, implications, and actionable recommendations
-3. **Evidence-Based**: Support all claims with specific references to sources and verification results
-4. **Comprehensive Coverage**: Address all major aspects discovered during research, including technical details, current developments, and future implications
-5. **Academic Rigor**: Maintain objectivity while clearly indicating confidence levels of different claims
-6. **Practical Utility**: Structure information to be immediately useful for decision-making and further research
-7. **Language Accuracy**: Write in the language requested by the user with proper academic terminology
+1. **Professional Structure**: Create a formal report with clear sections, proper headers, and logical information flow using detailed explanations
+2. **Deep Analysis**: Go beyond summarization to provide insights, implications, and actionable recommendations with comprehensive detail and analogies
+3. **Evidence-Based**: Support all claims with specific references to sources and verification results, with detailed explanations of the evidence. NEVER make unsupported claims or invent information.
+4. **Comprehensive Coverage**: Address all major aspects discovered during research, including technical details, current developments, and future implications with extensive analysis
+5. **Academic Rigor**: Maintain objectivity while clearly indicating confidence levels of different claims with detailed reasoning
+6. **Practical Utility**: Structure information to be immediately useful for decision-making and further research with step-by-step explanations
+7. **Language Accuracy**: Write in the language requested by the user with proper academic terminology and comprehensive explanations
+8. **Detailed Explanations**: Use analogies, examples, and step-by-step breakdowns to make complex concepts accessible
+9. **Comprehensive Length**: Prioritize thoroughness over brevity - aim for detailed, comprehensive coverage (1500-3000 words)
+10. **Engaging Style**: Write in an engaging, accessible manner similar to high-quality Medium articles while maintaining academic rigor
+11. **Factual Integrity**: CRITICAL - Only state information that is directly supported by research sources. Clearly distinguish between facts from sources and explanatory analogies/examples.
+12. **Zero Hallucination Policy**: NEVER invent, fabricate, or cite academic papers, authors, books, or references that are not explicitly provided in the search results. If insufficient sources are available, acknowledge this limitation rather than filling gaps with fictional content.
 
 Required sections (adapt headers to requested language):
 - **Report Title** (create a professional, descriptive title that reflects the scope and findings)
-- **Executive Summary** (3-4 key takeaways with confidence indicators)
-- **Key Findings & Analysis** (detailed findings organized thematically with supporting evidence)
-- **Technical Details** (implementation specifics, methodologies, or technical aspects where relevant)
-- **Current Developments** (recent updates, trends, or changes in the field)
-- **Implications & Recommendations** (practical implications and suggested actions)
-- **Research Methodology** (description of search strategy, sources consulted, and verification approach)
-- **Sources & References** (comprehensive, properly formatted source list with reliability indicators)
+- **Executive Summary** (3-4 key takeaways with confidence indicators) | **บทสรุปโดยละเอียด** (for Thai)
+- **Key Findings & Analysis** (detailed findings organized thematically with supporting evidence) | **ผลการวิจัยหลักและการวิเคราะห์** (for Thai)
+- **Technical Details** (implementation specifics, methodologies, or technical aspects) | **รายละเอียดเทคนิค** (for Thai)
+- **Technical Terms & Concepts** (for academic papers: detailed explanation of specialized terminology and mathematical concepts) | **ศัพท์เทคนิคและแนวคิด** (for Thai)
+- **Literature Review** (for academic papers: historical context, related work, and field positioning) | **การทบทวนวรรณกรรม** (for Thai)
+- **Current Developments** (recent updates, trends, or changes in the field) | **ความก้าวหน้าปัจจุบัน** (for Thai)
+- **Implications & Recommendations** (practical implications and suggested actions) | **ข้อเสนอแนะและคำแนะนำ** (for Thai)
+- **Research Methodology** (description of search strategy, sources consulted, and verification approach) | **วิธีการวิจัย** (for Thai)
+- **Sources & References** (comprehensive, properly formatted source list with reliability indicators) | **แหล่งอ้างอิงและเอกสารอ้างอิง** (for Thai)
 
 IMPORTANT FORMATTING GUIDELINES:
-- Start with a professional report title as an H1 header (# Title)
+- **Report Title**: 
+  - For English reports: Start with H1 header (# Title)
+  - For Thai reports: Use bold text format (**รายงานการวิจัย: [Topic]**) - NO H1 header
+  - CRITICAL: Thai reports should NOT use markdown headers for the title
 - Use H2 headers (##) for main sections and H3 headers (###) for subsections
+- **Eng/Thai Formatting**: Add line breaks between subsections for better readability (เว้นบรรทัดระหว่างหัวข้อย่อย)
 - Include confidence indicators: "confirmed by multiple sources", "according to [source]", "preliminary evidence suggests"
-- Use bullet points for key findings and recommendations
-- Format technical details in clear, structured manner
+- Use detailed paragraphs with comprehensive explanations rather than just bullet points
+- Format technical details in clear, structured manner with step-by-step explanations
+- Include analogies and real-world examples to illustrate complex concepts
 - Ensure proper source attribution throughout the document
+- Write in an engaging, accessible style similar to high-quality Medium articles
+- Provide extensive detail and comprehensive coverage of all aspects
 - CRITICAL: Write the ENTIRE report in the language requested by the user
 
-The final document should read as a professional research report suitable for academic, business, or technical audiences.
+**THAI TITLE FORMATTING REQUIREMENTS**:
+- Thai reports MUST NOT use H1 headers (#)
+- Use bold text format: **รายงานการวิจัย: [Thai Title Text]**
+- Example: **รายงานการวิจัย: [Research Topic in Thai]**
+- Ensure proper Thai typography and academic terminology
+
+The final document should read as a professional research report suitable for academic, business, or technical audiences, with the depth and accessibility of high-quality Medium articles that provide comprehensive understanding through detailed explanations, analogies, and real-world examples.
+
+Focus specifically on the research topic findings and analysis.
 </REQUIREMENTS>
 
-<FORMATTING>
-- Use markdown formatting for headers, emphasis, and lists
-- Start section headers with ## for main sections and ### for subsections
-- Use **bold** for key terms and important points
-- Use bullet points (-) for lists and key points
-- Include proper line breaks between sections
-- Format sources as: * **Source Title**: URL (Reliability: High/Medium/Low - Source Type)
-- Use proper reliability indicators and source types for better artifact display
-</FORMATTING>
-
 <CONTEXT>
-Research Topic: {research_topic}
 Current Date: {current_date}
 Research Loops Completed: {research_loop_count}
 </CONTEXT>
 
 <TASK>
-Based on the research summary and web research results provided, create a comprehensive research report that synthesizes all the information into a professional document. Focus on providing valuable insights and analysis rather than just summarizing individual sources.
+CRITICAL: Start your response IMMEDIATELY with the report title. Do not include any preamble, explanations about your approach, or meta-commentary about the task.
+
+Create a comprehensive research report about the research topic that synthesizes all the information into a professional document. Address all aspects of the user's research request comprehensively.
+
+For English reports, begin directly with: # [Report Title]
+For Thai reports, begin directly with: **รายงานการวิจัย: [Report Title]**
 </TASK>
 """
 
-chain_of_verification_instructions = """You are an expert fact-checker tasked with generating verification questions to ensure the accuracy and completeness of research findings.
+chain_of_verification_instructions = """You are an expert research quality analyst tasked with generating verification questions to ensure research relevance, source quality, and summary accuracy.
 
 <GOAL>
-Generate 3-5 specific verification questions that would help validate key claims, findings, or conclusions in the research summary.
+Generate 3-5 specific verification questions that would help validate:
+1. Research relevance to the user's original query
+2. Quality and credibility of sources used
+3. Accuracy and completeness of research findings
+4. Currency and reliability of information
 </GOAL>
 
+<VERIFICATION_CATEGORIES>
+**Relevance Verification:**
+- Does the research directly address the user's specific question?
+- Are the sources focused on the requested topic or scope?
+- Is the complexity level appropriate for the user's request?
+
+**Source Quality Verification:**
+- Are the sources credible and authoritative?
+- Are there more recent or authoritative sources available?
+- Do the sources provide primary or secondary information?
+
+**Content Accuracy Verification:**
+- Can key claims be independently verified?
+- Are there conflicting reports or alternative perspectives?
+- Are statistical claims or technical details accurate?
+
+**Completeness Verification:**
+- Are there important aspects of the topic missing?
+- Do other sources provide additional crucial information?
+- Is the research comprehensive for the scope requested?
+</VERIFICATION_CATEGORIES>
+
 <REQUIREMENTS>
-1. Focus on factual claims that can be independently verified
-2. Prioritize the most important or controversial statements
-3. Generate questions that are specific and searchable
-4. Avoid obvious or trivial questions
-5. Include questions about methodology, data sources, and recent developments
+1. Focus on questions that verify relevance to the original user query: "{research_topic}"
+2. Include questions about source credibility and currency
+3. Generate questions that can identify gaps or inaccuracies
+4. Prioritize verification of key claims and technical details
+5. Include questions about alternative perspectives or conflicting information
+6. Generate questions that are specific and searchable
+7. Ensure questions help assess if research fully addresses user needs
 </REQUIREMENTS>
 
 <FORMAT>
 Format your response as a JSON object with this structure:
 {{
     "verification_questions": [
-        "Specific verification question 1",
-        "Specific verification question 2", 
-        "Specific verification question 3"
+        "Question about research relevance to user query",
+        "Question about source quality or credibility", 
+        "Question about accuracy of key claims",
+        "Question about completeness or missing information",
+        "Question about recent developments or updates"
     ]
 }}
 </FORMAT>
 
 <CONTEXT>
-Research Topic: {research_topic}
-Current Summary: {current_summary}
+Original User Query: {research_topic}
+Current Research Summary: {current_summary}
 </CONTEXT>
 
 <TASK>
-Based on the research summary provided, generate verification questions that would help validate the key findings and claims. Focus on questions that can be answered through targeted web searches.
+Based on the research summary provided, generate verification questions that would help validate the research quality, relevance to the user's query, and accuracy of findings. Focus on questions that can be answered through targeted web searches to improve research quality.
 </TASK>"""
 
-verification_synthesis_instructions = """You are an expert research analyst tasked with synthesizing research findings with verification results using a Chain of Verification approach.
+verification_synthesis_instructions = """You are an expert research quality analyst tasked with synthesizing research findings with verification results using a comprehensive Chain of Verification approach. Your synthesis should improve research relevance, source quality, and content accuracy.
 
 <GOAL>
-Update and improve the research summary by incorporating verification results, correcting any inaccuracies, and adding missing important information.
+Update and improve the research summary by:
+1. **Relevance Enhancement**: Ensure research directly addresses the user's original query
+2. **Source Quality Improvement**: Incorporate higher-quality sources and flag low-quality ones
+3. **Accuracy Verification**: Correct inaccuracies and add confidence indicators
+4. **Completeness Assessment**: Add missing crucial information identified during verification
+5. **Currency Updates**: Include more recent information when found
 </GOAL>
 
-<REQUIREMENTS>
-1. **Accuracy**: Correct any claims that were contradicted by verification results
-2. **Completeness**: Add important information discovered during verification
-3. **Confidence**: Clearly indicate the confidence level of key claims
-4. **Balance**: Present multiple perspectives when verification reveals conflicting information
-5. **Transparency**: Note when verification was inconclusive or when sources disagree
-</REQUIREMENTS>
+<VERIFICATION_SYNTHESIS_APPROACH>
 
-<VERIFICATION_APPROACH>
-For each key claim in the original summary:
-1. Check if it was verified, contradicted, or refined by the verification results
-2. Update the claim accordingly with appropriate confidence indicators:
-   - "confirmed by multiple sources" for strong verification
-   - "according to [source]" for single-source claims  
-   - "preliminary evidence suggests" for weak evidence
-   - "conflicting reports indicate" for contradictory evidence
-</VERIFICATION_APPROACH>
+**Relevance Assessment:**
+- Evaluate if verification reveals research is off-topic or missing key aspects of user query
+- Restructure content to better address user's specific question and context
+- Remove tangential information that doesn't serve the user's needs
+- Highlight information most relevant to the user's original request
 
-<FORMATTING>
-- Maintain the original structure and flow of the summary
-- Use clear, professional language
-- Add confidence indicators naturally within the text
-- Include newly discovered important information in relevant sections
-</FORMATTING>
+**Source Quality Integration:**
+- Prioritize information from high-credibility sources identified in verification
+- Flag or remove information from low-quality sources
+- Add new authoritative sources found during verification
+- Note source limitations and reliability levels
+
+**Accuracy and Confidence Updates:**
+- Correct claims contradicted by verification results
+- Add confidence indicators based on verification strength:
+  - "confirmed by multiple authoritative sources" for strong verification
+  - "according to [high-quality source]" for single authoritative source
+  - "preliminary evidence suggests" for limited verification
+  - "conflicting reports exist regarding" for contradictory evidence
+  - "recent studies indicate" for current information
+
+**Completeness Enhancement:**
+- Add critical missing information discovered during verification
+- Address gaps in coverage identified through verification questions
+- Include alternative perspectives or conflicting viewpoints found
+- Ensure all key aspects of the user's query are covered
+
+**Currency and Relevance:**
+- Update outdated information with more recent findings
+- Note when information may be outdated
+- Highlight recent developments relevant to the user's query
+</VERIFICATION_SYNTHESIS_APPROACH>
+
+<QUALITY_REQUIREMENTS>
+1. **User-Focused**: Ensure final summary directly serves the user's original question and context
+2. **Source Transparency**: Clearly indicate source quality and reliability throughout
+3. **Balanced Perspective**: Include multiple viewpoints when verification reveals them
+4. **Actionable Insights**: Provide conclusions that help the user understand the topic comprehensively
+5. **Professional Accuracy**: Maintain high standards for factual correctness
+6. **Accessible Language**: Use clear explanations appropriate for the user's requested complexity level
+7. **Comprehensive Coverage**: Address all important aspects identified through verification
+</QUALITY_REQUIREMENTS>
+
+<FORMATTING_GUIDELINES>
+- Maintain logical flow while reorganizing for better relevance to user query
+- Use source attribution: "According to [Source Type - Reliability Level]"
+- Add verification-based confidence indicators naturally in text
+- Include newly discovered information in appropriate sections
+- Use clear section headers that align with user's information needs
+- Provide detailed explanations with examples when verification reveals complexity
+- Highlight key takeaways that directly answer the user's question
+</FORMATTING_GUIDELINES>
 
 <CONTEXT>
-Research Topic: {research_topic}
+Original User Query: {research_topic}
 Original Summary Length: {summary_length} characters
 </CONTEXT>
 
 <TASK>
-Based on the original research summary and verification results provided, create an improved summary that incorporates the verification findings. Ensure accuracy while maintaining readability and professional tone.
+Based on the original research summary and verification results provided, create an improved summary that:
+1. Better addresses the user's specific query and context
+2. Incorporates higher-quality sources and information
+3. Corrects inaccuracies and adds appropriate confidence levels
+4. Includes missing information crucial to answering the user's question
+5. Provides a more comprehensive and reliable response to the user's needs
 </TASK>"""
