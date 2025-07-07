@@ -523,7 +523,7 @@ openwebui_integration = OpenWebUIToolIntegration()
 
 # Utility functions for easy integration
 
-async def register_arxiv_mcp_server(server_url: str = "http://192.168.19.61:9937", 
+async def register_arxiv_mcp_server(server_url: str = "http://localhost:9937", 
                                    auth_token: Optional[str] = None) -> bool:
     """
     Register ArXiv MCP server using OpenWebUI patterns
