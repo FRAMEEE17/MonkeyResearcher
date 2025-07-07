@@ -37,6 +37,16 @@ class Configuration(BaseModel):
         title="Fetch Full Page",
         description="Include the full page content in the search results"
     )
+    filter_low_reliability: bool = Field(
+        default=False,
+        title="Filter Low Reliability Sources",
+        description="Exclude low-reliability sources (social media, forums) from search results"
+    )
+    min_source_reliability: Literal["Low", "Medium", "High"] = Field(
+        default="Low",
+        title="Minimum Source Reliability",
+        description="Minimum reliability level for sources (Low=all, Medium=exclude low, High=only high)"
+    )
     ollama_base_url: str = Field(
         default="http://localhost:11434/",
         title="Ollama Base URL",
@@ -63,7 +73,7 @@ class Configuration(BaseModel):
         description="Timeout in seconds for web search operations"
     )
     arxiv_mcp_server_url: str = Field(
-        default="http://localhost:9937",
+        default="http://192.168.19.61:9937",
         title="ArXiv MCP Server URL",
         description="URL for the ArXiv MCP server"
     )
@@ -84,6 +94,13 @@ class Configuration(BaseModel):
         title="Memory Capture Level",
         description="Level of detail to capture in memories"
     )
+    
+    # LangGraph execution settings
+    recursion_limit: int = Field(
+        default=50,
+        title="Recursion Limit",
+        description="Maximum number of nodes to execute in the graph (prevents infinite loops)"
+    )
 
     @classmethod
     def from_runnable_config(
@@ -100,7 +117,22 @@ class Configuration(BaseModel):
             for name in cls.model_fields.keys()
         }
         
-        # Filter out None values
-        values = {k: v for k, v in raw_values.items() if v is not None}
+        # Filter out None values and convert string values for environment variables
+        values = {}
+        for k, v in raw_values.items():
+            if v is not None:
+                # Handle boolean conversion from environment variables
+                if isinstance(v, str):
+                    field = cls.model_fields.get(k)
+                    if field and field.annotation in [bool, Optional[bool]]:
+                        # Convert string to boolean
+                        v = v.lower() in ('true', '1', 'yes', 'on', 'enabled')
+                    elif field and field.annotation == int:
+                        # Convert string to int
+                        try:
+                            v = int(v)
+                        except ValueError:
+                            continue  # Skip invalid int values
+                values[k] = v
         
         return cls(**values)
