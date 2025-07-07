@@ -182,7 +182,7 @@ def searxng_search(query: str, max_results: int = 3, fetch_full_page: bool = Fal
         # Use SearxSearchWrapper from langchain
         searx = SearxSearchWrapper(
             searx_host="http://localhost:8001",  # Default SearXNG host
-            engines=["google", "bing", "duckduckgo"]  # Multiple engines for better coverage
+            engines=["google", "bing"]  # Multiple engines for better coverage
         )
         
         results = searx.results(query, num_results=max_results)
@@ -233,20 +233,37 @@ def analyze_user_input(user_input: str) -> Dict[str, Any]:
     
     # Check for direct content request indicators
     direct_indicators = [
-        r'\b(?:analyze|explain|summarize|review|examine)\s+(?:this\s+)?(?:url|link|page|website|article)',
+        r'\b(?:analyze|explain|summarize|review|examine)\s+(?:this\s+)?(?:url|link|page|website|article|paper|document)',
         r'\b(?:what|how)\s+(?:is|does|are)\s+(?:this|that)',
         r'\btell\s+me\s+about\s+(?:this|that)',
         r'\b(?:analyze|explain|summarize)\s+(?:https?://|www\.)',
+        r'\b(?:elaborate|detail|describe|discuss)\s+.*?(?:this|the)\s+(?:paper|document|article)',
+        r'\b(?:write|create|generate)\s+.*?(?:review|analysis|summary)\s+.*?(?:this|the)\s+(?:paper|document)',
+        r'\b(?:in|from|of)\s+this\s+(?:paper|document|article)',
+        r'\bthis\s+paper\b',
+        r'\bthe\s+paper\b'
     ]
     
     direct_fetch = any(re.search(pattern, user_input, re.IGNORECASE) for pattern in direct_indicators)
     
     if url_match:
         url = url_match.group(0)
+        
+        # Check if it's an arXiv URL
+        is_arxiv = 'arxiv.org' in url.lower()
+        arxiv_id = None
+        
+        if is_arxiv:
+            arxiv_match = re.search(r'arxiv\.org/(?:abs/|pdf/)?([0-9]+\.[0-9]+)', url)
+            if arxiv_match:
+                arxiv_id = arxiv_match.group(1)
+        
         return {
             'input_type': 'url',
             'url': url,
             'direct_fetch': direct_fetch,
+            'is_arxiv': is_arxiv,
+            'arxiv_id': arxiv_id,
             'search_query': user_input if not direct_fetch else f"information about {url}"
         }
     
@@ -258,12 +275,14 @@ def analyze_user_input(user_input: str) -> Dict[str, Any]:
         'search_query': user_input
     }
 
-def fetch_url_content_directly(url: str) -> Optional[Dict[str, Any]]:
+def fetch_url_content_directly(url: str, is_arxiv: bool = False, arxiv_id: str = None) -> Optional[Dict[str, Any]]:
     """
-    Fetch content directly from any URL.
+    Fetch content directly from any URL, with special handling for arXiv papers.
     
     Args:
         url (str): The URL to fetch content from
+        is_arxiv (bool): Whether this is an arXiv URL
+        arxiv_id (str): arXiv paper ID if available
         
     Returns:
         Optional[Dict[str, Any]]: Dictionary containing:
@@ -274,6 +293,10 @@ def fetch_url_content_directly(url: str) -> Optional[Dict[str, Any]]:
         Returns None if fetching fails.
     """
     try:
+        # Special handling for arXiv papers
+        if is_arxiv or 'arxiv.org' in url.lower():
+            return fetch_arxiv_paper_content(url, arxiv_id)
+        
         content = fetch_content_with_beautifulsoup(url)
         
         if content:
@@ -292,6 +315,96 @@ def fetch_url_content_directly(url: str) -> Optional[Dict[str, Any]]:
             
     except Exception as e:
         print(f"Error fetching URL content: {str(e)}")
+        return None
+
+def fetch_arxiv_paper_content(url: str, arxiv_id: str = None) -> Optional[Dict[str, Any]]:
+    """
+    Fetch content from arXiv papers using the abstract page and metadata.
+    
+    Args:
+        url (str): The arXiv URL (can be PDF or abstract page)
+        arxiv_id (str): arXiv paper ID if available
+        
+    Returns:
+        Optional[Dict[str, Any]]: Dictionary containing paper metadata and content
+    """
+    try:
+        # Extract arXiv ID from URL if not provided
+        if not arxiv_id:
+            arxiv_match = re.search(r'arxiv\.org/(?:abs/|pdf/)?([0-9]+\.[0-9]+)', url)
+            if arxiv_match:
+                arxiv_id = arxiv_match.group(1)
+            else:
+                return None
+        
+        # Construct abstract page URL
+        abstract_url = f"https://arxiv.org/abs/{arxiv_id}"
+        
+        # Fetch abstract page content
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(abstract_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract paper metadata
+        title_elem = soup.find('h1', class_='title')
+        title = title_elem.get_text().replace('Title:', '').strip() if title_elem else f"arXiv Paper {arxiv_id}"
+        
+        authors_elem = soup.find('div', class_='authors')
+        authors = authors_elem.get_text().replace('Authors:', '').strip() if authors_elem else "Unknown Authors"
+        
+        abstract_elem = soup.find('blockquote', class_='abstract')
+        abstract = abstract_elem.get_text().replace('Abstract:', '').strip() if abstract_elem else "No abstract available"
+        
+        # Extract submission info
+        submission_elem = soup.find('div', class_='submission-history')
+        submission_info = submission_elem.get_text().strip() if submission_elem else ""
+        
+        # Extract subjects/categories
+        subjects_elem = soup.find('span', class_='primary-subject') or soup.find('td', class_='tablecell subjects')
+        subjects = subjects_elem.get_text().strip() if subjects_elem else ""
+        
+        # Construct comprehensive content
+        content = f"""# {title}
+
+**Authors:** {authors}
+
+**arXiv ID:** {arxiv_id}
+
+**URL:** {abstract_url}
+
+**Subjects:** {subjects}
+
+## Abstract
+
+{abstract}
+
+## Paper Information
+
+This paper is available on arXiv with ID {arxiv_id}. For the full technical content, readers should access the PDF version.
+
+**Note:** This is a research paper from arXiv. The above information includes the title, authors, abstract, and basic metadata. For detailed technical analysis, specific sections, mathematical formulations, and complete methodology, please refer to the full PDF document.
+
+{submission_info}
+"""
+        
+        return {
+            'title': title,
+            'content': content,
+            'url': abstract_url,
+            'arxiv_id': arxiv_id,
+            'source': 'arxiv_paper',
+            'authors': authors,
+            'abstract': abstract,
+            'subjects': subjects
+        }
+        
+    except Exception as e:
+        print(f"Error fetching arXiv paper content: {str(e)}")
         return None
 
 def fetch_content_with_beautifulsoup(url: str) -> Optional[str]:
@@ -358,7 +471,7 @@ def web_search_only(query: str, max_results: int = 3, fetch_full_page: bool = Fa
         print(f"Web search failed: {str(e)}")
         return {"results": []}
 
-async def mcp_search(query: str, max_results: int = 10, server_url: str = "http://localhost:9937", **kwargs) -> Dict[str, List[Dict[str, Any]]]:
+async def mcp_search(query: str, max_results: int = 10, server_url: str = "http://192.168.19.61:9937", **kwargs) -> Dict[str, List[Dict[str, Any]]]:
     """
     Search ArXiv papers using MCP client.
     
@@ -406,7 +519,7 @@ async def mcp_search(query: str, max_results: int = 10, server_url: str = "http:
         print(f"MCP search failed: {str(e)}")
         return {"results": []}
 
-def mcp_search_sync(query: str, max_results: int = 10, server_url: str = "http://localhost:9937", **kwargs) -> Dict[str, List[Dict[str, Any]]]:
+def mcp_search_sync(query: str, max_results: int = 10, server_url: str = "http://192.168.19.61:9937", **kwargs) -> Dict[str, List[Dict[str, Any]]]:
     """
     Synchronous wrapper for MCP search.
     
@@ -430,7 +543,7 @@ def parallel_search_coordinator(
     search_strategy: str = "web_search",
     max_results: int = 8,
     fetch_full_page: bool = False,
-    mcp_server_url: str = "http://localhost:9937"
+    mcp_server_url: str = "http://192.168.19.61:9937"
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     Coordinate parallel search across different sources based on strategy.
