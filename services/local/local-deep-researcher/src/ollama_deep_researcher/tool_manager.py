@@ -539,10 +539,15 @@ class ToolManager:
         if not tool_spec.url:
             raise ValueError("MCP tool missing server URL")
             
-        # Fix: await the coroutine first, then use as context manager
+        # Fix: create_mcp_client is a coroutine that needs to be awaited
+        # and the client should be used directly without context manager
         client = await create_mcp_client(tool_spec.url)
-        async with client:
+        try:
             return await client.call_tool(tool_spec.name, parameters)
+        finally:
+            # Close the client if it has a close method
+            if hasattr(client, 'close'):
+                await client.close()
             
     def get_tools_for_llm(self) -> List[Dict[str, Any]]:
         """
@@ -581,7 +586,7 @@ class ToolManager:
                 
         return tools
         
-    async def initialize_openwebui_integration(self, arxiv_server_url: str = "http://192.168.19.61:9937"):
+    async def initialize_openwebui_integration(self, arxiv_server_url: str = "http://localhost:9937"):
         """
         Initialize OpenWebUI integration with ArXiv MCP server
         
@@ -609,7 +614,7 @@ class ToolManager:
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
                     "max_results": {"type": "integer", "description": "Maximum number of results", "default": 5},
-                    "search_engine": {"type": "string", "enum": ["google", "bing", "duckduckgo"], "default": "google"}
+                    "search_engine": {"type": "string", "enum": ["google", "bing"], "default": "google"}
                 },
                 "required": ["query"]
             },
@@ -681,7 +686,7 @@ async def load_tool_from_code(tool_name: str, source_code: str) -> bool:
     """Load a tool from Python source code"""
     return tool_manager.load_python_tool(tool_name, source_code)
 
-async def initialize_openwebui_tools(arxiv_server_url: str = "http://192.168.19.61:9937") -> bool:
+async def initialize_openwebui_tools(arxiv_server_url: str = "http://localhost:9937") -> bool:
     """Initialize OpenWebUI integration with ArXiv MCP server"""
     await tool_manager.initialize_openwebui_integration(arxiv_server_url)
     return tool_manager.openwebui_initialized
