@@ -61,7 +61,7 @@ class Pipeline:
             description="Number of research iterations to perform"
         )
         local_llm: str = Field(
-            default="llama3.2",
+            default="MonkeyResearcher",
             title="LLM Model Name",
             description="Name of the LLM model to use"
         )
@@ -86,7 +86,7 @@ class Pipeline:
             description="Base URL for Ollama API"
         )
         openai_compatible_base_url: str = Field(
-            default="http://localhost:8000/v1",
+            default="http://localhost:22222/v1",
             title="OpenAI Compatible Base URL",
             description="Base URL for OpenAI-compatible API server"
         )
@@ -112,10 +112,27 @@ class Pipeline:
             description="API key for Perplexity search service"
         )
         searxng_url: str = Field(
-            default="http://localhost:8080",
+            default="http://localhost:8001",
             title="SearXNG URL",
             description="URL for SearXNG search instance"
         )
+        recursion_limit: int = Field(
+            default=100,
+            title="Recursion Limit", 
+            description="Maximum number of graph execution steps (default: 100)"
+        )
+        # Source Quality Filtering
+        filter_low_reliability: bool = Field(
+            default=True,
+            title="Filter Low Reliability Sources",
+            description="Filter out low reliability sources (social media, forums)"
+        )
+        min_source_reliability: str = Field(
+            default="Medium",
+            title="Minimum Source Reliability",
+            description="Minimum source reliability level: Low (all sources), Medium (exclude low-reliability), High (only high-reliability academic/government sources)"
+        )
+        
 
     def __init__(self):
         self.name = "🐒🔬 Monkey Researcher 🌟"
@@ -139,7 +156,16 @@ class Pipeline:
 
     def _extract_research_topic(self, messages: List[dict]) -> str:
         """Extract the research topic from the conversation messages"""
-        # Get the last user message as the research topic
+        # Debug: Print all messages to understand what we're receiving
+        # print(f"🔍 DEBUG: Received {len(messages)} messages")
+        for i, message in enumerate(messages):
+            role = message.get("role", "unknown")
+            content = message.get("content", "")
+            content_preview = str(content)[:100] + "..." if len(str(content)) > 100 else str(content)
+            print(f"  Message {i}: {role} = {content_preview}")
+        
+        # Get the last user message as the research topic, but skip title generation prompts
+        valid_messages = []
         for message in reversed(messages):
             if message.get("role") == "user":
                 content = message.get("content", "")
@@ -147,10 +173,48 @@ class Pipeline:
                     # Handle multimodal content
                     for item in content:
                         if item.get("type") == "text":
-                            return item.get("text", "")
-                return content
+                            text_content = item.get("text", "")
+                            # Skip title generation prompts
+                            if not self._is_title_generation_prompt(text_content):
+                                valid_messages.append(text_content)
+                                return text_content
+                else:
+                    # Skip title generation prompts
+                    if not self._is_title_generation_prompt(content):
+                        valid_messages.append(content)
+                        return content
+        
+        # If no valid messages found, check if all were system prompts
+        if not valid_messages:
+            print("⚠️ WARNING: All messages appear to be system-generated prompts, skipping pipeline execution")
+            return None
+        
         return "General research topic"
-
+    
+    def _is_title_generation_prompt(self, content: str) -> bool:
+        """Check if the content is a title generation prompt that should be ignored"""
+        title_indicators = [
+            "Generate a concise, 3-5 word title",
+            "### Task:",
+            "Generate a concise",
+            "3-5 word title", 
+            "chat history",
+            "JSON format:",
+            "### Guidelines:",
+            "### Output:",
+            "Generate 1-3 broad tags",
+            "categorizing the main themes",
+            "broad tags categorizing",
+            "main themes of the chat",
+            "tags categorizing the main",
+            "Generate tags",
+            "chat history below",
+            "themes of the chat history",
+            "Generate a title",
+            "title for the chat",
+            "Generate appropriate tags"
+        ]
+        return any(indicator.lower() in content.lower() for indicator in title_indicators)
     def _create_config(self) -> dict:
         """Create configuration for the research graph"""
         return {
@@ -164,7 +228,12 @@ class Pipeline:
                 "strip_thinking_tokens": self.valves.strip_thinking_tokens,
                 "openai_compatible_base_url": self.valves.openai_compatible_base_url,
                 "openai_compatible_api_key": self.valves.openai_compatible_api_key,
-            }
+                # Source Quality Filtering
+                "filter_low_reliability": self.valves.filter_low_reliability,
+                "min_source_reliability": self.valves.min_source_reliability
+            },
+            # CRITICAL: Add recursion limit to prevent infinite loops
+            "recursion_limit": self.valves.recursion_limit
         }
 
     async def on_startup(self):
@@ -205,7 +274,7 @@ class Pipeline:
         try:
             # Check if the researcher is available
             if not self.is_available:
-                return "❌ Local Deep Researcher is not available. Please check the module installation and path configuration."
+                return "Local Deep Researcher is not available. Please check the module installation and path configuration."
             
             # Log event emitter status for debugging
             logger.info(f"Event emitter provided: {__event_emitter__ is not None}")
@@ -214,6 +283,10 @@ class Pipeline:
             
             # Extract the research topic from user input
             research_topic = self._extract_research_topic(messages)
+            
+            # Check if we got a valid research topic (not a system prompt)
+            if research_topic is None:
+                return "No valid research query detected. This appears to be a system-generated request that has been filtered out."
             
             # Update environment variables
             self._update_environment()
